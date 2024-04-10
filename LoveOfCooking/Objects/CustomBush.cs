@@ -157,8 +157,8 @@ namespace LoveOfCooking
 			: base(tileLocation: tile, size: 0, location: location)
 		{
 			this.Init();
-			this.currentTileLocation = tile;
-			this.currentLocation = location;
+			this.Tile = tile;
+			this.Location = location;
 			this.SetForVariety(variety: variety, setNetField: true);
 		}
 
@@ -175,7 +175,7 @@ namespace LoveOfCooking
 				this.SetForVariety(variety: newValue, setNetField: false);
 			};
 
-			this.NetFields.AddFields(this._variety, this.HeldProduce);
+			this.NetFields.AddField(this._variety).AddField(this.HeldProduce);
 		}
 
         private void GetReflectedMembers()
@@ -198,9 +198,9 @@ namespace LoveOfCooking
 
 		public string GetSeason(GameLocation location)
 		{
-			return this.overrideSeason.Value == -1
-				? Game1.GetSeasonForLocation(location)
-				: Utility.getSeasonNameFromNumber(this.overrideSeason.Value);
+			return this.Location.GetSeasonIndex() == -1
+				? Game1.GetSeasonKeyForLocation(location)
+				: Utility.getSeasonNameFromNumber(this.Location.GetSeasonIndex());
 		}
 
 		public bool CanProduce(string season)
@@ -223,18 +223,18 @@ namespace LoveOfCooking
 			bool isGrowthAreaClear = true;
 			int growthRectSize = ((growthRadius * 2) + 1) * Game1.tileSize;
 			Rectangle growthRect = new Rectangle(
-			(int)((this.tilePosition.Value.X - growthRadius) * Game1.tileSize),
-			(int)((this.tilePosition.Value.Y - growthRadius) * Game1.tileSize),
+			(int)((this.Tile.X - growthRadius) * Game1.tileSize),
+			(int)((this.Tile.Y - growthRadius) * Game1.tileSize),
 			growthRectSize,
 			growthRectSize);
-			if (this.currentLocation.largeTerrainFeatures.Any(ltf => ltf.getBoundingBox(ltf.tilePosition.Value).Intersects(growthRect)))
+			if (this.Location.largeTerrainFeatures.Any(ltf => ltf.getBoundingBox().Intersects(growthRect)))
 			{
 				isGrowthAreaClear = false;
 			}
 			else
 			{
-				foreach (KeyValuePair<Vector2, TerrainFeature> pair in this.currentLocation.terrainFeatures.Pairs
-					.Where(pair => pair.Value.getBoundingBox(pair.Key).Intersects(growthRect)))
+				foreach (KeyValuePair<Vector2, TerrainFeature> pair in this.Location.terrainFeatures.Pairs
+					.Where(pair => pair.Value.getBoundingBox().Intersects(growthRect)))
 				{
 					if (!pair.Value.Equals(this)
 						&& (pair.Value is Tree || pair.Value is Bush || pair.Value is CustomBush || (pair.Value is HoeDirt h && h.crop != null)))
@@ -268,7 +268,7 @@ namespace LoveOfCooking
 		public void Shake(GameLocation location, Vector2 tileLocation, bool doEvenIfStillShaking)
 		{
 			bool isShaking = Math.Abs(0f - this.MaxShakeField.GetValue()) > 0.001f;
-			if (isShaking || (!this.greenhouseBush.Value && Game1.currentSeason.Equals("winter")))
+			if (isShaking || (!this.IsSheltered() && Game1.currentSeason.Equals("winter")))
 			{
 				return;
 			}
@@ -294,7 +294,7 @@ namespace LoveOfCooking
 				{
 					Game1.createItemDebris(
 						item: o,
-						origin: Utility.PointToVector2(centre),
+						pixelOrigin: Utility.PointToVector2(centre),
 						direction: Game1.random.Next(1, 4));
 				}
 			}
@@ -311,7 +311,7 @@ namespace LoveOfCooking
 				{
 					Game1.createItemDebris(
 						item: o,
-						origin: Utility.PointToVector2(centre),
+						pixelOrigin: Utility.PointToVector2(centre),
 						direction: Game1.random.Next(1, 4));
 				}
 			}
@@ -319,7 +319,7 @@ namespace LoveOfCooking
 
 		public void TryGrowProduce(GameLocation location)
 		{
-			string season = this.GetSeason(location: location);
+			string season = Location.GetSeasonKey();
 			if (this.CanGrow(season: season))
 			{
 				++this.GrowthDays.Value;
@@ -332,7 +332,7 @@ namespace LoveOfCooking
 					if (!string.IsNullOrWhiteSpace(produceRule.Conditions))
 					{
 						string precondition = $"{CustomBush.DummyConditionEventId}/{produceRule.Conditions}";
-						if (this.currentLocation.checkEventPrecondition(precondition: precondition) < 0)
+						if (this.Location.checkEventPrecondition(precondition: precondition) != "-1")
 							continue;
 					}
 
@@ -359,11 +359,9 @@ namespace LoveOfCooking
 			}
 		}
 
-		public override void dayUpdate(GameLocation environment, Vector2 tileLocation)
+		public override void dayUpdate()
 		{
-			this.greenhouseBush.Value = environment.IsGreenhouse;
-
-			this.TryGrowProduce(location: environment);
+			this.TryGrowProduce(location: Location);
 			this.SetUpSourceRectangle();
 		}
 
@@ -387,9 +385,10 @@ namespace LoveOfCooking
 			return this.Definition.IsPassable || base.isPassable(c);
 		}
 
-		public override bool performUseAction(Vector2 tileLocation, GameLocation location)
+		public override bool performUseAction(Vector2 tileLocation)
 		{
-			bool canShake = !this.HasProduce || this.Definition.ToolsToHarvest is null
+            GameLocation location = Location;
+            bool canShake = !this.HasProduce || this.Definition.ToolsToHarvest is null
 				|| (Game1.player.CurrentTool is not null && this.Definition.ToolsToHarvest.Any(
 					tool => Game1.player.CurrentTool.GetType().Name.Equals(tool, StringComparison.InvariantCultureIgnoreCase)));
 			if (canShake)
@@ -403,9 +402,9 @@ namespace LoveOfCooking
 			return true;
 		}
 
-		public override bool performToolAction(Tool t, int explosion, Vector2 tileLocation, GameLocation location)
+		public override bool performToolAction(Tool t, int explosion, Vector2 tileLocation)
 		{
-			location ??= this.currentLocation;
+			GameLocation location = Location;
 			
 			if (explosion > 0)
 			{
@@ -417,7 +416,7 @@ namespace LoveOfCooking
 
 			if (t is not null
 				&& this.Definition.ToolsToDestroy.Any(n => n.Equals(t.GetType().Name, StringComparison.InvariantCultureIgnoreCase))
-				&& this.isDestroyable(location, tileLocation))
+				&& this.isDestroyable())
 			{
 				this.health -= CustomBush.HealthRemovedOnHit;
 
@@ -429,7 +428,7 @@ namespace LoveOfCooking
 				{
 					this.TossItems(isDestroyed: true);
 
-					string season = this.GetSeason(location: location);
+					string season = this.Location.GetSeasonKey();
 
 					if (!string.IsNullOrEmpty(this.Definition.SoundWhenDestroyed))
 						location.playSound(this.Definition.SoundWhenDestroyed);
@@ -506,8 +505,9 @@ namespace LoveOfCooking
 			return false;
 		}
 
-		public override Rectangle getBoundingBox(Vector2 tileLocation)
+		public override Rectangle getBoundingBox()
 		{
+			Vector2 tileLocation = Tile;
 			return new Rectangle(
 				(int)tileLocation.X * Game1.tileSize,
 				(int)tileLocation.Y * Game1.tileSize,
@@ -517,16 +517,16 @@ namespace LoveOfCooking
 
 		public override void loadSprite()
 		{
-			this.tileSheetOffset.Value = this.inBloom(Game1.currentSeason, Game1.dayOfMonth) ? 1 : 0;
+			this.tileSheetOffset.Value = this.inBloom() ? 1 : 0;
 			this.SetUpSourceRectangle();
 		}
 
 		public void SetUpSourceRectangle()
 		{
-			string season = this.GetSeason(this.currentLocation);
+			string season = this.Location.GetSeasonKey();
 			if (this.Definition is not null && this.Definition.SourceAreas.ContainsKey(season))
 			{
-				Rectangle sourceRectangle = this.Definition.SourceAreas[this.GetSeason(this.currentLocation)];
+				Rectangle sourceRectangle = this.Definition.SourceAreas[this.Location.GetSeasonKey()];
 				sourceRectangle.X += (sourceRectangle.Width * this.GrowthStage);
 				this.SourceRectangle = sourceRectangle;
 			}
@@ -536,11 +536,12 @@ namespace LoveOfCooking
 			}
 		}
 		
-		public override void draw(SpriteBatch spriteBatch, Vector2 tileLocation)
+		public override void draw(SpriteBatch spriteBatch)
 		{
+			Vector2 tileLocation = Tile;
 			if (!this.SourceRectangle.HasValue)
 				return;
-			Rectangle bounds = this.getBoundingBox(tileLocation);
+			Rectangle bounds = this.getBoundingBox();
 			Vector2 screenPosition = Game1.GlobalToLocal(
 				viewport: Game1.viewport,
 				globalPosition: new Vector2(
@@ -597,7 +598,7 @@ namespace LoveOfCooking
 
 		public static void ShakeBehaviour(CustomBush bush, Vector2 tileLocation)
 		{
-			bush.currentLocation.localSound(bush.Definition.SoundWhenShaken);
+			bush.Location.localSound(bush.Definition.SoundWhenShaken);
 
 			bush.TossItems(isDestroyed: false);
 
@@ -618,7 +619,7 @@ namespace LoveOfCooking
 				Log.D($"Found {bushes.Count} bushes in {location.Name} ({variety})"
 					+ (bushes.Any()
 						? bushes.Aggregate("{Environment.NewLine}=> ",
-							(str, nb) => $"{str} ({nb.tilePosition.Value.X},{nb.tilePosition.Value.Y})")
+							(str, nb) => $"{str} ({nb.Tile.X},{nb.Tile.Y})")
 						: string.Empty),
 					ModEntry.Config.DebugMode);
 				if (remove)
@@ -628,7 +629,7 @@ namespace LoveOfCooking
 						LargeTerrainFeature ltf = location.largeTerrainFeatures[i];
 						if (ltf is CustomBush customBush)
 						{
-							Log.D($"Removing from {ltf.currentTileLocation}...",
+							Log.D($"Removing from {ltf.Tile}...",
 								ModEntry.Config.DebugMode);
 							location.largeTerrainFeatures.RemoveAt(i);
 						}

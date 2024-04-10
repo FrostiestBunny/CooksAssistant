@@ -69,16 +69,20 @@ namespace LoveOfCooking.Objects
 		/// <summary>
 		/// Performs most behaviours from <see cref="StardewValley.Tool.actionWhenPurchased"/>, 
 		/// </summary>
-		public override bool actionWhenPurchased()
+		public override bool actionWhenPurchased(string shopId)
 		{
-			Game1.player.toolBeingUpgraded.Value = this;
-			Game1.player.daysLeftForToolUpgrade.Value = ModEntry.Config.DebugMode ? 0 : CookingTool.DaysToUpgrade;
-			Game1.playSound("parry");
-			Game1.exitActiveMenu();
-			Game1.drawDialogue(Game1.getCharacterFromName("Clint"),
-			Game1.content.LoadString("Strings\\StringsFromCSFiles:Tool.cs.14317"));
-			return true;
-		}
+			if (shopId == "ClintUpgrade" && Game1.player.toolBeingUpgraded.Value == null)
+			{
+				Game1.player.toolBeingUpgraded.Value = this;
+				Game1.player.daysLeftForToolUpgrade.Value = ModEntry.Config.DebugMode ? 0 : CookingTool.DaysToUpgrade;
+				Game1.playSound("parry");
+				Game1.exitActiveMenu();
+				Game1.DrawDialogue(Game1.getCharacterFromName("Clint"),
+				Game1.content.LoadString("Strings\\StringsFromCSFiles:Tool.cs.14317"));
+				return true;
+			}
+            return base.actionWhenPurchased(shopId);
+        }
 
 		/// <summary>
 		/// Adds custom behaviour for receiving an upgraded <see cref="CookingTool"/> from the Blacksmith.
@@ -102,12 +106,12 @@ namespace LoveOfCooking.Objects
 		/// <summary>
 		/// Replace base behaviour by returning an instance of <see cref="CookingTool"/>.
 		/// </summary>
-		public override Item getOne()
-		{
-			CookingTool tool = new CookingTool(upgradeLevel: this.UpgradeLevel);
-			tool._GetOneFrom(this);
-			return tool;
-		}
+		//public override Item getOne()
+		//{
+		//	CookingTool tool = new CookingTool(upgradeLevel: this.UpgradeLevel);
+		//	tool.GetOneCopyFrom(this);
+		//	return tool;
+		//}
 
 		/// <summary>
 		/// Replace base behaviour by drawing from our custom <see cref="ModEntry.SpriteSheet"/> instead of <see cref="Game1.toolSpriteSheet"/>.
