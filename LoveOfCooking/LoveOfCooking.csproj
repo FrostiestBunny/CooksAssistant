@@ -4,7 +4,7 @@
 		<AssemblyName>LoveOfCooking</AssemblyName>
 		<RootNamespace>LoveOfCooking</RootNamespace>
 		<Version>1.0.30</Version>
-		<TargetFramework>net5.0</TargetFramework>
+		<TargetFramework>net6.0</TargetFramework>
 		<Platforms>AnyCPU</Platforms>
 		<PlatformTarget>AnyCPU</PlatformTarget>
 		<EnableHarmony>true</EnableHarmony>
